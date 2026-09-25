@@ -1,7 +1,6 @@
 # microbiome-rmarkdown-analysis
 # U.Vural
 
-<<<<<<< HEAD
 # TODO
 # environment.yml & renv.lock
 
