@@ -1,6 +1,7 @@
 # microbiome-rmarkdown-analysis
 # U.Vural
 
+<<<<<<< HEAD
 # TODO
 # environment.yml & renv.lock
 
@@ -44,6 +45,8 @@ results/microbiome_16s_analysis.html
 ## Repository structure
 
 ```text
+=======
+>>>>>>> 8d493cd82ed66cc2ba5b038a23317d2233f4fb79
 microbiome-16s-rmarkdown-analysis/
 ├── README.md
 ├── config/
@@ -64,6 +67,7 @@ microbiome-16s-rmarkdown-analysis/
     ├── alpha_diversity.csv
     ├── pcoa_coordinates.csv
     └── microbiome_16s_analysis.html
+<<<<<<< HEAD
 ```
 
 ## Input data
@@ -82,3 +86,5 @@ Place the input files in the `data/` directory.
 - Feature IDs in `taxonomy.tsv` must match the feature-row names in `feature_table.tsv`.
 - Use tab-separated files (`.tsv`).
 - Keep raw counts in the feature table. Do not provide relative-abundance values unless the scripts are explicitly config
+=======
+>>>>>>> 8d493cd82ed66cc2ba5b038a23317d2233f4fb79
