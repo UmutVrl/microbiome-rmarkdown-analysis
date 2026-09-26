@@ -1,0 +1,372 @@
+---
+title: "GlobalPatterns_16S_rRNA"
+author: "Umut Can Vural"
+date: "2026-09-26"
+output: html_document
+R (4.6.1) + Rtools45 + RStudio (2026.09.0.174)
+---
+
+## Readme & Timeline
+
+This project conducts an exploratory downstream analysis of processed 16S rRNA amplicon sequencing data from the GlobalPatterns dataset. It evaluates sequencing depth, alpha diversity, beta diversity, taxonomic composition, and differences in microbial community structure across sample types using R, phyloseq, vegan, and R Markdown
+
+## Settings
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+rstudioapi::writeRStudioPreference("data_viewer_max_columns", 100L)
+Sys.setlocale("LC_ALL", "en_US.UTF-8")
+```
+
+## Package installation
+
+The code below checks whether the required packages are installed, installs missing packages where necessary, and loads them for the analysis.
+
+```{r setup-packages, message=FALSE, warning=FALSE}
+# Function for CRAN packages
+check_and_install <- function(pkg) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    install.packages(pkg, dependencies = TRUE, quiet = TRUE)
+  }
+}
+
+# CRAN packages used in this report
+cran_packages <- c(
+  "tidyverse",
+  "vegan",
+  "ape",
+  "rmarkdown",
+  "knitr",
+  "here",
+  "janitor"
+)
+
+# Install missing CRAN packages
+invisible(lapply(cran_packages, check_and_install))
+
+# Install Bioconductor package manager if necessary
+if (!requireNamespace("BiocManager", quietly = TRUE)) {
+  install.packages("BiocManager", quiet = TRUE)
+}
+
+# Install missing Bioconductor packages
+bioc_packages <- c(
+  "phyloseq",
+  "microbiome"
+)
+
+for (pkg in bioc_packages) {
+  if (!requireNamespace(pkg, quietly = TRUE)) {
+    BiocManager::install(pkg, ask = FALSE, update = FALSE)
+  }
+}
+
+# Load packages used in the report
+invisible(lapply(
+  c(cran_packages, bioc_packages),
+  library,
+  character.only = TRUE
+))
+```
+
+## Package checking (Later)
+
+```{r load-packages, message=FALSE, warning=FALSE}
+required_packages <- c(
+  "tidyverse",
+  "vegan",
+  "janitor",
+  "here",
+  "phyloseq"
+)
+
+missing_packages <- required_packages[
+  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
+]
+
+if (length(missing_packages) > 0) {
+  stop(
+    "Missing packages: ",
+    paste(missing_packages, collapse = ", "),
+    ". Please install them before rendering the report."
+  )
+}
+
+invisible(lapply(required_packages, library, character.only = TRUE))
+```
+
+## Required packages
+
+- **tidyverse**: Provides tools for importing, cleaning, transforming, summarising, and visualising tabular data, including `dplyr`, `readr`, `tidyr`, and `ggplot2`.
+
+- **phyloseq**: Integrates microbiome abundance data, taxonomy, phylogenetic information, and sample metadata into a single object for ecological analysis.
+
+- **vegan**: Provides ecological statistics, including Bray–Curtis dissimilarity calculations, ordination support, and PERMANOVA.
+
+- **microbiome**: Provides microbiome-specific functions for abundance transformation, prevalence filtering, and community composition analysis.
+
+- **ape**: Provides functions for reading, handling, and analysing phylogenetic trees when a tree is included in the dataset.
+
+- **janitor**: Provides convenient functions for cleaning and standardising variable and column names.
+
+- **here**: Creates reliable relative file paths within the project folder, improving reproducibility across computers.
+
+- **rmarkdown**: Renders the analysis, code, figures, and written interpretation into a reproducible HTML report.
+
+- **knitr**: Executes R code chunks and formats code, tables, figures, and output inside the R Markdown report.
+
+# Introduction and Research Question
+
+**Research question:**
+
+> How do microbial alpha diversity, beta diversity, and taxonomic composition
+> vary across environmental and host-associated sample types in the
+> GlobalPatterns dataset?
+
+Microbial communities differ substantially depending on the environment or
+host they are associated with. This analysis explores whether samples from
+different environmental and host-associated sources (e.g., soil, ocean,
+feces, skin) differ in:
+
+- **Alpha diversity** — diversity *within* a sample (richness/evenness)
+- **Beta diversity** — diversity *between* samples (community structure)
+- **Taxonomic composition** — which taxa dominate each sample type
+
+# Dataset Description
+
+`GlobalPatterns` is a widely used example 16S rRNA amplicon dataset
+distributed with the `phyloseq` package (Caporaso et al. 2011). It contains
+high-throughput sequencing data from 26 samples spanning diverse
+environmental and host-associated sources, along with an associated
+phylogenetic tree and taxonomy assignments.
+
+## 03_Package Setup
+
+```{r packages}
+library(tidyverse)
+library(phyloseq)
+library(vegan)
+library(ape)
+library(rmarkdown)
+```
+
+## 04_Load GlobalPatterns
+
+```{r load-data}
+data(GlobalPatterns)
+GlobalPatterns
+```
+
+## 05_Inspect Data Structure
+
+```{r structure}
+ntaxa(GlobalPatterns)
+nsamples(GlobalPatterns)
+rank_names(GlobalPatterns)
+
+# Zero-count taxa (candidates for filtering later)
+sum(taxa_sums(GlobalPatterns) == 0)
+
+# Any missing values in the OTU table?
+any(is.na(otu_table(GlobalPatterns)))
+```
+
+## 06_Inspect Sample Metadata
+
+```{r metadata}
+sample_data(GlobalPatterns) %>%
+  as("data.frame") %>%
+  glimpse()
+
+# Sample types available for grouping in later analyses
+sample_data(GlobalPatterns)$SampleType %>% unique()
+
+# Sample count per SampleType
+sample_data(GlobalPatterns) %>%
+  as("data.frame") %>%
+  count(SampleType, sort = TRUE)
+```
+
+## 07_Sequencing-Depth Assessment
+
+Sequencing depth (library size = total reads per sample) varies naturally across samples and sample types. Low-depth samples can artificially deflate alpha diversity estimates and distort beta diversity distances, so we inspect depth here before deciding on any filtering or exclusion.
+
+```{r seq-depth}
+# Build a depth table: one row per sample, with SampleType attached
+depth_df <- tibble(
+  SampleID   = sample_names(GlobalPatterns),
+  LibSize    = sample_sums(GlobalPatterns),
+  SampleType = sample_data(GlobalPatterns)$SampleType
+)
+
+depth_df %>% arrange(LibSize)
+
+```
+
+```{r seq-depth-summary}
+# Numeric summary overall
+summary(depth_df$LibSize)
+
+# Numeric summary by SampleType
+depth_df %>%
+  group_by(SampleType) %>%
+  summarise(
+    n      = n(),
+    min    = min(LibSize),
+    median = median(LibSize),
+    mean   = mean(LibSize),
+    max    = max(LibSize),
+    .groups = "drop"
+  ) %>%
+  arrange(median)
+```
+
+```{r seq-depth-hist}
+ggplot(depth_df, aes(x = LibSize)) +
+  geom_histogram(bins = 15, fill = "steelblue", color = "white") +
+  labs(
+    title = "Distribution of Sequencing Depth Across All Samples",
+    x = "Library size (total reads)",
+    y = "Number of samples"
+  ) +
+  theme_minimal()
+```
+
+```{r seq-depth-boxplot}
+ggplot(depth_df, aes(x = reorder(SampleType, LibSize, median), y = LibSize)) +
+  geom_boxplot(outlier.shape = NA, fill = "grey85") +
+  geom_jitter(aes(color = SampleType), width = 0.15, size = 2, show.legend = FALSE) +
+  coord_flip() +
+  labs(
+    title = "Sequencing Depth by Sample Type",
+    x = "Sample type",
+    y = "Library size (total reads)"
+  ) +
+  theme_minimal()
+```
+
+**Potential low-depth outliers** — samples noticeably below the rest of their group or the overall distribution:
+
+```{r seq-depth-outliers}
+# Flag samples below the 10th percentile of overall library size as a
+# starting heuristic; adjust threshold after visual inspection above.
+low_depth_threshold <- quantile(depth_df$LibSize, 0.10)
+
+depth_df %>%
+  filter(LibSize < low_depth_threshold) %>%
+  arrange(LibSize)
+```
+
+```{r seq-depth}
+# Build a depth table: one row per sample, with SampleType attached
+depth_df <- tibble(
+  SampleID   = sample_names(GlobalPatterns),
+  LibSize    = sample_sums(GlobalPatterns),
+  SampleType = sample_data(GlobalPatterns)$SampleType
+)
+
+depth_df %>% arrange(LibSize)
+
+```
+
+```{r seq-depth-ratios}
+depth_df |>
+  summarise(
+    minimum = min(LibSize),
+    median = median(LibSize),
+    maximum = max(LibSize),
+    max_to_min_ratio = maximum / minimum,
+    median_to_min_ratio = median / minimum
+  )
+```
+
+```{r seq-depth-natural-gap}
+depth_df |>
+  arrange(LibSize) |>
+  mutate(
+    PreviousDepth = lag(LibSize),
+    RatioToPrevious = LibSize / PreviousDepth
+  ) |>
+  select(SampleID, SampleType, LibSize, PreviousDepth, RatioToPrevious)
+```
+
+```{r seq-depth-rarecurve, fig.width=8, fig.height=6}
+# Rarefaction curves: if a sample's curve plateaus well before its total
+# depth, its diversity estimate is not depth-limited. If curves for
+# low-depth samples end while still rising steeply, that IS a depth-driven
+# failure signal (unlike a simple ratio/threshold check).
+otu_mat <- as(otu_table(GlobalPatterns), "matrix")
+if (taxa_are_rows(GlobalPatterns)) otu_mat <- t(otu_mat)
+
+rarecurve(
+  otu_mat,
+  step      = 1000,
+  label     = TRUE,
+  cex       = 0.6,
+  col       = "steelblue",
+  main      = "Rarefaction Curves by Sample"
+)
+abline(v = min(depth_df$LibSize), col = "red", lty = 2)
+```
+
+The dashed red line marks the minimum observed library size (58,688 reads — `TRRsed1`). Note that `TRRsed1`'s curve necessarily *ends* at this line since it is the minimum-depth sample — that alone is not informative. What matters is the **slope** of each curve near its endpoint: a flat slope means the sample was sequenced deeply enough to capture most of its richness; a steep slope means richness was still being discovered when sequencing stopped (i.e., the sample is under-saturated).
+
+```{r seq-depth-rarecurve-zoom, fig.width=8, fig.height=6}
+# Zoom in on the lowest-depth samples only, so the slope near each curve's
+# endpoint can actually be judged (the full 26-sample plot is too compressed
+# to read this reliably).
+low_depth_samples <- depth_df %>%
+  arrange(LibSize) %>%
+  slice_head(n = 6) %>%
+  pull(SampleID)
+
+rarecurve(
+  otu_mat[low_depth_samples, ],
+  step  = 500,
+  label = TRUE,
+  cex   = 0.8,
+  col   = "steelblue",
+  main  = "Rarefaction Curves: 6 Lowest-Depth Samples"
+)
+```
+
+If these curves are still rising steeply at their endpoint (rather than flattening), this indicates those samples are under-saturated: their true richness is likely higher than observed, and rarefying to the shared minimum depth (58,688) will give conservative but *comparable* diversity estimates across all samples — even if it does not fully capture each sample's true richness. This is noted as a limitation in section 13, and does not change the decision to retain all samples, since rarefaction equalizes depth across the board rather than depending on any one sample having reached saturation.
+
+> **Observed result:** on visual inspection, the curves for the lowest-depth samples (including `TRRsed1`, the minimum-depth sample) were **still rising, not flattened**, at their endpoint. This confirms under-saturation for at least the lowest-depth samples in the dataset. Absolute richness values from the rarefied table (section 9) should therefore be treated as **conservative lower bounds** rather than saturated estimates — a point carried forward into section 13 (Interpretation and Limitations).
+
+## 08_Filtering Decision
+
+### Decision on low-depth samples
+
+Samples were ranked by library size and inspected for natural gaps or
+isolated low-depth failures using ratio-to-previous comparisons and
+rarefaction curves. No sample was separated from its neighbors by a
+disproportionate gap; depth increased smoothly across the full range
+(58,688–2,357,181 reads), and the three samples flagged below the 10th
+percentile (58,688–186,297 reads) sit on this same continuous gradient
+rather than forming an isolated cluster of failures. Rarefaction curves for
+the lowest-depth samples had not clearly plateaued by their endpoint,
+indicating these samples are somewhat under-saturated and their true
+richness may be underestimated. This is a limitation of the data rather
+than a reason for exclusion: rarefying **all** samples to the shared
+minimum depth (section 9) still yields diversity estimates that are
+directly comparable across samples, even though those estimates will be
+conservative (i.e., true richness for all samples, not just the low-depth
+ones, is likely somewhat higher than the rarefied estimate).
+
+A hard threshold of 50,000 reads was considered; since the minimum observed
+library size (58,688 reads, `TRRsed1`) is already above this threshold, no
+samples would be removed under this rule. Combined with the small existing
+group sizes for several `SampleType` levels (n = 2–3), excluding any sample
+would materially reduce statistical power in later group comparisons
+(alpha-diversity tests, PERMANOVA) for negligible benefit.
+
+**All 26 samples are retained.** Sequencing-depth variation is instead
+addressed methodologically: alpha diversity is computed on a rarefied
+table (section 9), and beta diversity is computed on relative-abundance
+(proportion) data (section 10), rather than by dropping samples.
+
+### Taxon-level filtering
+
+Separately from sample filtering, taxa with zero counts across all samples
+add no information and are removed before downstream analysis.
