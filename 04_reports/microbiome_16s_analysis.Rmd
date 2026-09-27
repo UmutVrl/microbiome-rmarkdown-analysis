@@ -1,13 +1,12 @@
 ---
-title: "GlobalPatterns_16S_rRNA"
-author: "Umut Can Vural"
-date: "2026-09-26"
+title: "Exploratory analysis of a public 16S rRNA microbiome dataset"
+author: "Umutcan Vural"
+date: "`r Sys.Date()`"
 output:
   html_document:
     toc: true
     toc_float: true
-    number_sections: true
-R (4.6.1) + Rtools45 + RStudio (2026.09.0.174)
+    theme: flatly
 ---
 
 ## Readme & Timeline
@@ -519,7 +518,6 @@ PERMANOVA assumes similar within-group dispersion (spread) across groups; if dis
 ```{r permanova-dispersion}
 dispersion <- betadisper(bray_dist, sample_df$SampleType)
 anova(dispersion)
-
 ```
 
 If this dispersion test is **not** significant, it supports interpreting the PERMANOVA result above as reflecting genuine differences in community composition between sample types, rather than an artifact of unequal within-group variability. If it **is** significant, the PERMANOVA result should be interpreted more cautiously alongside the PCoA plot.
@@ -557,7 +555,7 @@ to read reliably — a numeric summary is more informative here.
 Small distance → samples within that group are similar to each other → tight group / low within-group heterogeneity
 Large distance → samples within that group vary more from one another → spread-out group / high within-group heterogeneity
 
-```{r permanova-dispersion-plot, fig.width=9, fig.height=5}
+```{r permanova-dispersion-plot-v2, fig.width=9, fig.height=5}
 dispersion_df <- data.frame(
   SampleType = sample_df$SampleType,
   DistanceToCentroid = dispersion$distances
@@ -588,7 +586,7 @@ ggplot(
 ```
 
 
-```{r permanova-dispersion}
+```{r permanova-dispersion-median}
 dispersion_df %>%
   group_by(SampleType) %>%
   summarise(
