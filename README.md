@@ -239,6 +239,64 @@ Umutcan Vural
 For questions, suggestions, or collaboration, please open an issue in this repository.
 
 
+# Exploratory 16S microbiome analysis of the GlobalPatterns dataset
+
+This repository contains a reproducible R Markdown analysis of the `GlobalPatterns` 16S rRNA microbiome dataset from the `phyloseq` package. The analysis demonstrates a standard downstream microbiome workflow: sequencing-depth assessment, filtering decisions, alpha diversity, beta diversity, and taxonomic-composition visualisation.
+
+## Research question
+
+How do microbial diversity and community composition vary across sample types in the GlobalPatterns dataset?
+
+## Data
+
+- Dataset: `GlobalPatterns` (processed 16S feature table, taxonomy, sample metadata, phylogenetic tree).
+- Source: Included in the `phyloseq` R package; originally from Caporaso et al., 2011.
+
+## How to reproduce this analysis
+
+1. Install R (≥ 4.x) and RStudio.
+2. Install required packages:
+
+   ```r
+   install.packages(c(
+     "tidyverse",
+     "vegan",
+     "phyloseq",
+     "rmarkdown",
+     "knitr"
+   ))
+
+   if (!requireNamespace("BiocManager", quietly = TRUE)) {
+     install.packages("BiocManager")
+   }
+
+   BiocManager::install("phyloseq")
+   ```
+
+3. Open `reports/microbiome_16s_analysis.Rmd` in RStudio.
+4. Click **Knit → Knit to HTML** to render the report.
+5. The rendered HTML report will appear in the `reports/` directory.
+
+## Project structure
+
+- `reports/microbiome_16s_analysis.Rmd`: main analysis and report.
+- `reports/microbiome_16s_analysis.html`: rendered HTML report.
+- `README.md`: this file.
+
+## Limitations
+
+- This is a downstream analysis of a preprocessed dataset.
+- The dataset is heterogeneous and includes small sample-type groups.
+- Results are descriptive and exploratory.
+
+## License
+
+[Choose a license, e.g. CC BY 4.0 or MIT, and add a short line here.]
+
+
+
+
+
 #Introduction to Microbiome analysis
 
 Source:https://training.galaxyproject.org/training-material/topics/microbiome/tutorials/introduction/slides.html#p1
