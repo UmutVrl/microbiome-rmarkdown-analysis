@@ -1,0 +1,12 @@
+rule all:
+    input:
+        "results/workflow_test.txt"
+
+
+rule workflow_test:
+    output:
+        "results/workflow_test.txt"
+    shell:
+        """
+        echo "Snakemake is running successfully." > {output}
+        """
