@@ -1,0 +1,5 @@
+seed: 123
+group_variable: "SampleType"
+
+outputs:
+  cleaned_data: "results/cleaned_data.rds"

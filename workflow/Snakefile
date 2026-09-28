@@ -1,12 +1,16 @@
+configfile: "config/config.yaml"
+
+
 rule all:
     input:
-        "results/workflow_test.txt"
+        config["outputs"]["cleaned_data"]
 
 
-rule workflow_test:
+rule validate_data:
     output:
-        "results/workflow_test.txt"
-    shell:
-        """
-        echo "Snakemake is running successfully." > {output}
-        """
+        cleaned_data=config["outputs"]["cleaned_data"]
+    params:
+        seed=config["seed"],
+        group_variable=config["group_variable"]
+    script:
+        "../scripts/validate_data.R"
