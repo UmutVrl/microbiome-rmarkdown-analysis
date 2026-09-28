@@ -1,0 +1,14 @@
+Processed GlobalPatterns data
+        ↓
+validate_data.R
+        ↓
+results/cleaned_data.rds
+        ↓
+create_analysis_tables.R
+        ↓
+results/alpha_diversity.csv
+results/pcoa_coordinates.csv
+        ↓
+microbiome_16s_analysis.Rmd
+        ↓
+results/microbiome_16s_analysis.html

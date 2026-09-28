@@ -6,7 +6,10 @@ output:
   html_document:
     toc: true
     toc_float: true
-    theme: flatly
+  pdf_document:
+    toc: true
+    number_sections: true
+geometry: margin=1in
 ---
 
 ## Readme & Timeline
@@ -20,84 +23,9 @@ knitr::opts_chunk$set(echo = TRUE)
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 ```
 
-## Package installation (First Run)
-
-The code below checks whether the required packages are installed, installs missing packages where necessary, and loads them for the analysis.
-
-```{r setup-packages, message=FALSE, warning=FALSE}
-# Function for CRAN packages
-check_and_install <- function(pkg) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    install.packages(pkg, dependencies = TRUE, quiet = TRUE)
-  }
-}
-
-# CRAN packages used in this report
-cran_packages <- c(
-  "tidyverse",
-  "vegan",
-  "ape",
-  "rmarkdown",
-  "knitr",
-  "here",
-  "janitor"
-)
-
-# Install missing CRAN packages
-invisible(lapply(cran_packages, check_and_install))
-
-# Install Bioconductor package manager if necessary
-if (!requireNamespace("BiocManager", quietly = TRUE)) {
-  install.packages("BiocManager", quiet = TRUE)
-}
-
-# Install missing Bioconductor packages
-bioc_packages <- c(
-  "phyloseq",
-  "microbiome"
-)
-
-for (pkg in bioc_packages) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    BiocManager::install(pkg, ask = FALSE, update = FALSE)
-  }
-}
-
-# Load packages used in the report
-invisible(lapply(
-  c(cran_packages, bioc_packages),
-  library,
-  character.only = TRUE
-))
-```
-
-## Package checking (Later Runs)
-
-```{r load-packages, message=FALSE, warning=FALSE}
-required_packages <- c(
-  "tidyverse",
-  "vegan",
-  "janitor",
-  "here",
-  "phyloseq"
-)
-
-missing_packages <- required_packages[
-  !vapply(required_packages, requireNamespace, logical(1), quietly = TRUE)
-]
-
-if (length(missing_packages) > 0) {
-  stop(
-    "Missing packages: ",
-    paste(missing_packages, collapse = ", "),
-    ". Please install them before rendering the report."
-  )
-}
-
-invisible(lapply(required_packages, library, character.only = TRUE))
-```
-
 ## Required packages
+
+**Installation:** See scripts/install_dependencies.R
 
 - **tidyverse**: Provides tools for importing, cleaning, transforming, summarising, and visualising tabular data, including `dplyr`, `readr`, `tidyr`, and `ggplot2`.
 
@@ -117,6 +45,8 @@ invisible(lapply(required_packages, library, character.only = TRUE))
 
 - **knitr**: Executes R code chunks and formats code, tables, figures, and output inside the R Markdown report.
 
+- **tinytex**: A lightweight, cross-platform, portable, and easy-to-maintain LaTeX distribution based on TeX Live
+
 # Introduction and Research Question
 
 **Research question:**
@@ -135,12 +65,17 @@ Microbial communities differ substantially depending on the environment or host 
 
 # Package Setup
 
-```{r packages}
+```{r setup-packages, message=FALSE, warning=FALSE}
+# installation: See scripts/install_dependencies.R
 library(tidyverse)
-library(phyloseq)
 library(vegan)
 library(ape)
 library(rmarkdown)
+library(knitr)
+library(here)
+library(janitor)
+library(phyloseq)
+library(microbiome)
 ```
 
 # Load GlobalPatterns

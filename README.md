@@ -12,6 +12,9 @@ microbiome-16s-rmarkdown-analysis/
 ├── README.md
 ├── .gitignore
 ├── microbiome-16s-rmarkdown-analysis.Rproj
+├── notes.txt
+├── install_dependencies.R
+├── snakemake.txt
 └── reports/
     ├── microbiome_16s_analysis.Rmd
     └── microbiome_16s_analysis.html
@@ -38,28 +41,27 @@ microbiome-16s-rmarkdown-analysis/
 
 The analysis uses a processed feature table, taxonomy, metadata, and phylogenetic tree supplied by `phyloseq`. It demonstrates downstream 16S microbiome analysis; it does not reproduce upstream raw-read processing, denoising, chimera removal, or taxonomy assignment.
 
-## Reproduce
+## Installation & Reproduction:
 
 1. Install R and RStudio.
 2. Install the required packages:
 
+From the project root in RStudio, install the project dependencies once:
+
 ```r
-install.packages(c("tidyverse", "vegan", "rmarkdown", "knitr"))
-
-if (!requireNamespace("BiocManager", quietly = TRUE)) {
-  install.packages("BiocManager")
-}
-
-BiocManager::install("phyloseq")
+source("scripts/install_dependencies.R")
 ```
 
+This installs the required CRAN and Bioconductor packages. It also installs TinyTeX if it is not available, enabling optional PDF rendering.
+
 3. Open `reports/microbiome_16s_analysis.Rmd` in RStudio.
-4. Knit the report to HTML.
+4. To produce the report without LaTeX, knit `reports/microbiome_16s_analysis.Rmd` to HTML. TinyTeX is required only for PDF output.
 
 ## Repository contents
 
 - `reports/microbiome_16s_analysis.Rmd`: source code and narrative report.
-- `reports/microbiome_16s_analysis.html`: rendered analysis report.
+- `results/microbiome_16s_analysis.html`: rendered analysis report.
+- `results/microbiome_16s_analysis.pdf`: rendered analysis report.
 
 ## Limitations
 
