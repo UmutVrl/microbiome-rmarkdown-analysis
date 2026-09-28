@@ -3,7 +3,9 @@ configfile: "config/config.yaml"
 
 rule all:
     input:
-        config["outputs"]["cleaned_data"]
+        config["outputs"]["cleaned_data"],
+        config["outputs"]["alpha_diversity"],
+        config["outputs"]["pcoa_coordinates"]
 
 
 rule validate_data:
@@ -14,3 +16,16 @@ rule validate_data:
         group_variable=config["group_variable"]
     script:
         "../scripts/validate_data.R"
+
+
+rule create_analysis_tables:
+    input:
+        cleaned_data=config["outputs"]["cleaned_data"]
+    output:
+        alpha_diversity=config["outputs"]["alpha_diversity"],
+        pcoa_coordinates=config["outputs"]["pcoa_coordinates"]
+    params:
+        seed=config["seed"],
+        group_variable=config["group_variable"]
+    script:
+        "../scripts/create_analysis_tables.R"

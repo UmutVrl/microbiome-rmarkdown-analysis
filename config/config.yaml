@@ -1,5 +1,8 @@
 seed: 123
 group_variable: "SampleType"
+#rarefaction_depth: "minimum" #58688
 
 outputs:
   cleaned_data: "results/cleaned_data.rds"
+  alpha_diversity: "results/alpha_diversity.csv"
+  pcoa_coordinates: "results/pcoa_coordinates.csv"
