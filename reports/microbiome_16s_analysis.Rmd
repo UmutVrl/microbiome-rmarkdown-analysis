@@ -11,7 +11,7 @@ output:
 
 ## Readme & Timeline
 
-This project conducts an exploratory downstream analysis of processed 16S rRNA amplicon sequencing data from the GlobalPatterns dataset. It evaluates sequencing depth, alpha diversity, beta diversity, taxonomic composition, and differences in microbial community structure across sample types using R, phyloseq, vegan, and R Markdown
+This project conducts an exploratory downstream analysis of processed 16S rRNA amplicon sequencing data from the GlobalPatterns dataset. It evaluates sequencing depth, alpha diversity, beta diversity, taxonomic composition, and differences in microbial community structure across sample types using R.
 
 ## Settings
 
@@ -20,7 +20,7 @@ knitr::opts_chunk$set(echo = TRUE)
 Sys.setlocale("LC_ALL", "en_US.UTF-8")
 ```
 
-## Package installation
+## Package installation (First Run)
 
 The code below checks whether the required packages are installed, installs missing packages where necessary, and loads them for the analysis.
 
@@ -71,7 +71,7 @@ invisible(lapply(
 ))
 ```
 
-## Package checking (Later)
+## Package checking (Later Runs)
 
 ```{r load-packages, message=FALSE, warning=FALSE}
 required_packages <- c(
@@ -278,8 +278,6 @@ rarecurve(
 abline(v = min(depth_df$LibSize), col = "red", lty = 2)
 ```
 
-The dashed red line marks the minimum observed library size (58,688 reads — `TRRsed1`). Note that `TRRsed1`'s curve necessarily *ends* at this line since it is the minimum-depth sample — that alone is not informative. What matters is the **slope** of each curve near its endpoint: a flat slope means the sample was sequenced deeply enough to capture most of its richness; a steep slope means richness was still being discovered when sequencing stopped (i.e., the sample is under-saturated).
-
 ```{r seq-depth-rarecurve-zoom, fig.width=8, fig.height=6}
 # Zoom in on the lowest-depth samples only, so the slope near each curve's
 # endpoint can actually be judged (the full 26-sample plot is too compressed
@@ -299,17 +297,13 @@ rarecurve(
 )
 ```
 
-> **Observed result:** on visual inspection, the curves for the lowest-depth samples (including `TRRsed1`, the minimum-depth sample) were **still rising, not flattened**, at their endpoint. This confirms under-saturation for at least the lowest-depth samples in the dataset. Absolute richness values from the rarefied table (section 9) should therefore be treated as **conservative lower bounds** rather than saturated estimates — a point carried forward into section 13 (Interpretation and Limitations).
+**Observed result:** The dashed red line marks the minimum observed library size (58,688 reads; `TRRsed1`). Curves for the lowest-depth samples were still increasing near their endpoints, suggesting that sequencing did not fully capture all rare features. Alpha-diversity estimates should therefore be interpreted as conservative lower-bound estimates of richness.
 
 # Filtering Decision
 
 ### Decision on low-depth samples
 
-Samples were ranked by library size and inspected for natural gaps or isolated low-depth failures using ratio-to-previous comparisons and rarefaction curves. No sample was separated from its neighbors by a disproportionate gap; depth increased smoothly across the full range (58,688–2,357,181 reads), and the three samples flagged below the 10th percentile (58,688–186,297 reads) sit on this same continuous gradient rather than forming an isolated cluster of failures. Rarefaction curves for the lowest-depth samples had not clearly plateaued by their endpoint, indicating these samples are somewhat under-saturated and their true richness may be underestimated. This is a limitation of the data rather than a reason for exclusion: rarefying **all** samples to the shared minimum depth (section 9) still yields diversity estimates that are directly comparable across samples, even though those estimates will be conservative (i.e., true richness for all samples, not just the low-depth ones, is likely somewhat higher than the rarefied estimate).
-
-A hard threshold of 50,000 reads was considered; since the minimum observed library size (58,688 reads, `TRRsed1`) is already above this threshold, no samples would be removed under this rule. Combined with the small existing group sizes for several `SampleType` levels (n = 2–3), excluding any sample would materially reduce statistical power in later group comparisons (alpha-diversity tests, PERMANOVA) for negligible benefit.
-
-**All 26 samples are retained.** Sequencing-depth variation is instead addressed methodologically: alpha diversity is computed on a rarefied table (section 9), and beta diversity is computed on relative-abundance (proportion) data (section 10), rather than by dropping samples.
+All 26 samples were retained. Although three samples fell below the 10th percentile of sequencing depth, none showed a clear isolated low-depth failure, and excluding samples would further reduce already small group sizes. Alpha diversity was calculated from rarefied counts at the minimum observed depth, while beta diversity used relative-abundance profiles. Rarefaction curves for the lowest-depth samples were still increasing at their endpoints; richness estimates should therefore be interpreted as conservative lower bounds. Features with zero counts across all samples were removed before downstream analysis.
 
 ### Taxon-level filtering
 
@@ -364,7 +358,7 @@ sample_sums(GlobalPatterns_relabund) %>% unique()  # should all equal 1
 
 # Alpha diversity
 
-How diverse is each individual microbiome sample?
+> How diverse is each individual microbiome sample?
 
 Alpha diversity describes the diversity within an individual microbiome sample. This analysis uses the rarefied feature table, in which all samples contain the same number of feature counts, to reduce the influence of unequal sequencing depth.
 
@@ -441,11 +435,11 @@ alpha_summary <- alpha_diversity |>
 alpha_summary
 ```
 
-**Observed pattern:** Soil samples had the highest median Shannon diversity (6.52) and median observed richness (3,555 features), indicating microbial communities that were both feature-rich and relatively even in their abundance distribution. Freshwater (creek) samples had the second-highest median observed richness (2,221 features) but one of the lowest median Shannon-diversity values (3.50). This divergence indicates that, although many features were detected in creek samples, their communities were likely dominated by a relatively small number of highly abundant features, while many others occurred at low relative abundance. Reporting both richness and Shannon diversity therefore provides a more informative description than richness alone. Because the dataset includes heterogeneous environments and small sample-type groups, these results are descriptive and should not be interpreted as confirmatory group comparisons.
+**Observed result:** Soil samples showed the highest richness and Shannon diversity, indicating diverse and relatively even communities. Freshwater creek samples had high richness but low Shannon diversity, suggesting uneven feature abundances. Results are descriptive because groups were small and heterogeneous.
 
 ### Statistical test
 
-Group sizes are small and unequal (n = 2-4) and diversity indices are not guaranteed to be normally distributed, so a non-parametric Kruskal-Wallis test is used rather than ANOVA to test for overall differences in each metric across `SampleType`.
+Kruskal–Wallis tests assessed overall differences across sample types because group sizes were small and unequal (n = 2–4) and normality could not be assumed.
 
 ```{r alpha-kruskal}
 kruskal.test(Observed ~ SampleType, data = alpha_diversity)
@@ -453,13 +447,13 @@ kruskal.test(Shannon  ~ SampleType, data = alpha_diversity)
 kruskal.test(Simpson  ~ SampleType, data = alpha_diversity)
 ```
 
-**Result:** all three tests were significant (Observed: χ² = 21.33, df = 8, p = 0.0063; Shannon: χ² = 22.13, df = 8, p = 0.0047; Simpson: χ² = 21.42, df = 8, p = 0.0061). Alpha diversity differs significantly across `SampleType`, consistent with the pattern observed above — Soil showing the highest diversity and Feces/Mock/Tongue among the lowest. This is a group-level difference, not a statement about the dataset as a whole: diversity is a per-group property, and a non-significant result here would simply have meant the groups were similarly diverse, not that the data were flawed.
+**Result:** Alpha diversity differed across sample types for all three metrics: Observed richness (\(\chi^2 = 21.33\), \(df = 8\), \(p = 0.0063\)), Shannon diversity (\(\chi^2 = 22.13\), \(df = 8\), \(p = 0.0047\)), and Simpson diversity (\(\chi^2 = 21.42\), \(df = 8\), \(p = 0.0061\)). This supports the descriptive pattern of higher diversity in soil and lower diversity in some host-associated or mock samples.
 
-With only 2–4 samples per group, these tests have limited power; a non-significant result should be interpreted as inconclusive rather than as evidence of no difference. The significant omnibus result confirms *some* group differs from others, but not *which* specific pairs — a post-hoc test (e.g., Dunn's test) would be needed for pairwise claims, which is beyond the current scope but noted as a possible extension.
+The significant omnibus tests indicate that at least one sample type differs from another, but do not identify specific group pairs. Because groups contain only 2–4 samples, results are exploratory and no pairwise post-hoc comparisons were conducted.
 
-# Beta diversity/PCoA
+# Beta diversity / PCoA
 
-Beta diversity describes differences in microbial community composition between samples. Bray–Curtis dissimilarity is calculated from the **relative-abundance** table (`GlobalPatterns_relabund`), not the rarefied table, per the decision in section 8: rarefying a second time would discard additional reads for no benefit, whereas converting to proportions controls for uneven sequencing depth while retaining all observed taxa. Principal Coordinates Analysis (PCoA) is used to visualise the resulting between-sample relationships.
+Beta diversity assesses differences in microbial community composition between samples. Bray–Curtis dissimilarity was calculated from relative-abundance profiles to account for unequal sequencing depth while retaining all observed taxa. PCoA was used to visualise the resulting between-sample relationships.
 
 ```{r beta-distance}
 bray_dist <- phyloseq::distance(GlobalPatterns_relabund, method = "bray")
@@ -487,13 +481,13 @@ plot_ordination(GlobalPatterns_relabund, pcoa_ord, color = "SampleType") +
   theme_minimal()
 ```
 
-**Interpretation guide:** samples that cluster tightly together have similar community composition; samples far apart differ substantially. Environmental sample types (Soil, Sediment, Freshwater, Ocean) are expected to separate from host-associated types (Feces, Skin, Tongue) if community structure is driven primarily by habitat — this is checked visually here and tested formally in section 11 (PERMANOVA).
+**Observed result:** Samples positioned closer together in the PCoA plot have more similar microbial compositions, while more distant samples have more dissimilar relative-abundance profiles.
 
-**Result:** Principal Coordinates Analysis was applied to the Bray–Curtis dissimilarity matrix to visualise differences in microbial community composition. The first two coordinate axes explained 14.7% and 12.2% of the observed compositional variation, respectively. Samples positioned closer together had more similar relative-abundance profiles, whereas more distant samples had more dissimilar profiles. Together, PCoA1 and PCoA2 account for only \~27% of total variance, so the two-dimensional plot is a useful summary but does not capture the full complexity of community differences — this is normal for compositional data with many taxa and is not a sign of a failed ordination.
+**Result:** The first two PCoA axes explained 14.7% and 12.2% of Bray–Curtis compositional variation, respectively (26.9% combined). The two-dimensional plot provides a useful visual summary, although most community variation is distributed across additional dimensions.
 
 # PERMANOVA
 
-The PCoA plot shows *where* samples fall relative to each other, but not whether apparent clustering by `SampleType` is statistically significant. PERMANOVA (Permutational Multivariate Analysis of Variance, `adonis2()`) tests this directly: it asks whether Bray–Curtis distances *within* the same `SampleType` are smaller than distances *between* different `SampleType` groups, more than would be expected by chance.
+PCoA visualises compositional relationships but does not test whether differences among sample types are statistically significant. PERMANOVA (`adonis2()`) tests whether microbial community composition is associated with `SampleType` by comparing within-group and between-group Bray–Curtis dissimilarities using permutations.
 
 ```{r permanova-test}
 set.seed(123)  # reproducibility for permutation test
@@ -509,7 +503,7 @@ permanova_result <- adonis2(
 permanova_result
 ```
 
-**Interpretation guide:** the `R2` column shows the proportion of total community-composition variance explained by `SampleType`; the `p-value` column tests whether this is greater than expected by chance, based on 999 random permutations of group labels.
+**Observed result::** the `R2` column shows the proportion of total community-composition variance explained by `SampleType`; the `p-value` column tests whether this is greater than expected by chance, based on 999 random permutations of group labels.
 
 ### Checking the PERMANOVA assumption
 
@@ -520,13 +514,9 @@ dispersion <- betadisper(bray_dist, sample_df$SampleType)
 anova(dispersion)
 ```
 
-If this dispersion test is **not** significant, it supports interpreting the PERMANOVA result above as reflecting genuine differences in community composition between sample types, rather than an artifact of unequal within-group variability. If it **is** significant, the PERMANOVA result should be interpreted more cautiously alongside the PCoA plot.
+PERMANOVA indicated that microbial community composition was strongly associated with `SampleType` (\(R^2 = 0.731\), \(F = 5.78\), \(p = 0.001\)). However, multivariate dispersion also differed among sample types (\(F = 5.81\), \(p = 0.0012\)), indicating unequal within-group variability.
 
-As with the alpha-diversity tests, small and unequal group sizes (n = 2–4) limit statistical power here; results should be interpreted as suggestive evidence for this specific dataset rather than strong confirmatory inference.
-
-**Result:** PERMANOVA found that `SampleType` explains a large proportion of total community variance (R² = 0.731, F = 5.78, p = 0.001), indicating that sample type is a dominant driver of compositional differences in this dataset. However, the dispersion test was also significant (F = 5.81, p = 0.00116), meaning groups differ in within-group spread as well as in centroid location. This means the PERMANOVA result is not fully clean: part of the 73.1% variance explained could reflect unequal dispersion rather than pure differences in group composition. An effect size this large is unlikely to be *entirely* a dispersion artifact, so genuine compositional differences between sample types almost certainly exist — but R² = 0.731 should be treated as an upper-bound estimate rather than a precise one.
-
-**Note:** Some sample types form tight clusters: their replicate communities are quite similar to one another. Other sample types form wide clouds: their replicate communities differ more from one another.
+Therefore, the PERMANOVA result should be interpreted cautiously: observed separation may reflect both differences in average community composition and differences in within-group heterogeneity. Some sample types formed tight clusters of compositionally similar replicates, whereas others showed greater internal variation. Given the small and unequal group sizes (\(n = 2\)–\(4\)), results are exploratory rather than confirmatory.
 
 ```{r permanova-dispersion-plot, fig.width=9, fig.height=5}
 dispersion_df <- tibble(
@@ -547,13 +537,10 @@ ggplot(dispersion_df, aes(x = reorder(SampleType, Distance, median), y = Distanc
   ) +
   theme_minimal()
 ```
-This plot identifies which groups are driving the significant dispersion
-result. With only 2–4 points per group, the boxplots themselves are hard
-to read reliably — a numeric summary is more informative here.
 
-**Interpretation guide:**
-Small distance → samples within that group are similar to each other → tight group / low within-group heterogeneity
-Large distance → samples within that group vary more from one another → spread-out group / high within-group heterogeneity
+This plot identifies which groups are driving the significant dispersion result. With only 2–4 points per group, the boxplots themselves are hard to read reliably — a numeric summary is more informative here.
+
+**Observed Result:** Small distance → samples within that group are similar to each other → tight group / low within-group heterogeneity Large distance → samples within that group vary more from one another → spread-out group / high within-group heterogeneity
 
 ```{r permanova-dispersion-plot-v2, fig.width=9, fig.height=5}
 dispersion_df <- data.frame(
@@ -585,7 +572,6 @@ ggplot(
   )
 ```
 
-
 ```{r permanova-dispersion-median}
 dispersion_df %>%
   group_by(SampleType) %>%
@@ -600,42 +586,15 @@ dispersion_df %>%
   arrange(desc(MedianDistance))
 ```
 
-This table shows which sample types actually have the largest and
-smallest distance-to-centroid values, rather than relying on a visual
-read of boxplots that are hard to interpret with so few points per group.
-The pattern here — not an assumption about group size — is what should
-drive the interpretation of the dispersion test above.
+The table summarises each sample type’s distance to its group centroid, providing a clearer view of within-group dispersion than boxplots with few observations.
 
-**Result:** `Freshwater` and `Tongue` (both n = 2) show a Range of
-essentially zero. This is a mathematical property of n = 2 groups, not a
-biological finding — with only two samples, both points are always
-exactly equidistant from their own group's centroid (the centroid *is*
-their midpoint). These two groups therefore contribute no real
-information about biological dispersion and should be excluded from any
-claim about which sample types are "tightly clustered."
+`Freshwater` and `Tongue` each contain two samples. Their near-zero distance range is a geometric property of two-sample groups, where both points are equidistant from their midpoint, rather than evidence of low biological variability.
 
-The informative pattern is among groups with n ≥ 3. `Mock` shows by far
-the lowest median distance to centroid (0.040), consistent with it being
-a synthetic control community with a known, fixed composition — low
-within-group variability here is expected and reassuring, not an
-artifact. `Freshwater (creek)` is also notably tight (median 0.108). At
-the other end, `Feces` (n = 4) has the highest median distance (0.439)
-with a genuine spread (0.336–0.532), and `Skin` shows the widest range
-overall (0.226–0.598), indicating real within-group heterogeneity in
-these host-associated sample types. This pattern — synthetic/environmental
-samples clustering tightly, host-associated samples (Feces, Skin) showing
-more internal variability — is consistent with the significant
-`betadisper()` result and is a plausible, biologically grounded
-explanation rather than a small-sample artifact for the groups where
-n ≥ 3.
+Among groups with at least three samples, Mock had the lowest median distance to centroid (0.040), followed by Freshwater (creek; 0.108), indicating relatively consistent composition within these groups. Feces had the highest median distance (0.439), while Skin showed the widest distance range (0.226–0.598), indicating greater within-group heterogeneity. These descriptive patterns are consistent with the significant dispersion test but should be interpreted cautiously because group sizes remain small.
 
 # Taxonomic composition
 
-To visualise which microbial groups contribute to differences among
-sample types, feature-level relative abundances were aggregated to the
-phylum level and plotted as stacked bar charts. For clarity, only the ten
-most abundant phyla are shown individually; remaining phyla are grouped
-as "Other."
+Feature-level relative abundances were aggregated to the phylum level and visualised as stacked bar charts. The ten most abundant phyla were shown individually, with all remaining phyla grouped as “Other.”
 
 ```{r taxonomic-composition-prep}
 # Agglomerate to phylum level
@@ -710,90 +669,29 @@ phylum_long %>%
   arrange(SampleType, desc(MeanRelAbundance))
 ```
 
-This table lists the three most abundant phyla within each `SampleType`,
-providing a compact, text-searchable complement to the stacked bar chart
-above — useful for identifying, for example, whether Soil and Sediment
-share dominant phyla (suggesting shared environmental drivers) or diverge
-entirely from host-associated types like Feces and Skin.
+The table summarises the three most abundant phyla within each sample type.
 
-**Result:** At the phylum level, sample types showed distinct dominant
-taxa. Feces samples were dominated by Firmicutes (mean relative
-abundance 54.8%) and Bacteroidetes (35.2%), together accounting for
-about 90% of the community on average. Freshwater creek samples were
-dominated by Cyanobacteria (62.6%), with Proteobacteria as the second
-most abundant phylum (18.6%). In contrast, non-creek freshwater samples
-showed a more balanced composition, with Actinobacteria (37.1%),
-Cyanobacteria (30.2%), and Proteobacteria (16.7%) as the top three
-phyla. Mock-community samples were dominated by a small set of phyla,
-including Firmicutes (41.4%), consistent with their controlled
-composition. These patterns connect directly to earlier results: the
-Freshwater (creek) group's high Observed richness paired with low
-Shannon diversity (section 9) is explained by this single-phylum
-dominance, and the tight beta-diversity clustering of creek and Mock
-samples (sections 10–11) is consistent with each being controlled by a
-small number of dominant phyla rather than a broad, even community.
+**Result:** Feces samples were dominated by Firmicutes (54.8%) and Bacteroidetes (35.2%). Freshwater creek samples were dominated by Cyanobacteria (62.6%), followed by Proteobacteria (18.6%). Non-creek freshwater samples were more balanced, with Actinobacteria (37.1%), Cyanobacteria (30.2%), and Proteobacteria (16.7%) as the most abundant phyla. Mock communities were dominated by a small set of phyla, including Firmicutes (41.4%). These patterns help explain the observed diversity results: Cyanobacteria dominance is consistent with the high richness but lower Shannon diversity of freshwater creek samples, while the consistent compositions of creek and mock samples align with their lower within-group dispersion.
 
-# Interpretation and Limitations
+# Interpretation and limitations
 
-The analysis followed a standard downstream microbiome workflow:
-sequencing-depth assessment, filtering decisions, alpha diversity
-(within-sample richness and evenness), beta diversity (between-sample
-compositional dissimilarity), and taxonomic-composition visualisation to
-identify the dominant phyla underlying the observed diversity patterns.
-Read together rather than as separate results: `SampleType` was found to
-be a strong driver of both within-sample diversity (section 9,
-Kruskal-Wallis p < 0.01 for all metrics) and between-sample composition
-(section 11, PERMANOVA R² = 0.73), and section 12 identifies the specific
-phyla responsible for these differences — most notably, Cyanobacteria
-dominance explaining the richness/evenness mismatch seen in Freshwater
-(creek) samples back in section 9.
+This analysis applied a standard downstream 16S microbiome workflow: sequencing-depth assessment, conservative filtering, alpha diversity, beta diversity, and phylum-level taxonomic composition.
 
-This analysis has several important limitations:
+Overall, sample type was associated with both alpha diversity and community composition. Soil samples showed high richness and evenness, whereas freshwater creek samples combined high richness with uneven taxonomic composition dominated by Cyanobacteria. Sample type was strongly associated with Bray–Curtis community composition, although unequal within-group dispersion means this result should be interpreted cautiously.
 
-- **Dispersion estimates for n = 2 groups (`Freshwater`, `Tongue`) are not
-  informative.** With only two samples, distance-to-centroid is
-  mathematically fixed at zero range regardless of true biological
-  variability, so `betadisper()` results for these groups cannot be used
-  to claim they are "tightly clustered." Samples were retained (removing
-  them would only shrink already-small groups further), but dispersion
-  conclusions in section 11 rely on the n >= 3 groups only.
+## Limitations
 
-- **Processed data only:** the analysis begins with a preprocessed 16S
-  feature table and does not reproduce upstream steps such as primer
-  trimming, denoising, chimera removal, or taxonomy assignment.
-  Conclusions therefore depend on the original processing choices.
+- The analysis used preprocessed 16S data and did not reproduce raw-read processing, denoising, chimera removal, or taxonomy assignment.
+- Sequencing counts are compositional; relative abundance does not measure absolute microbial abundance.
+- The dataset includes heterogeneous environments and small, unequal sample-type groups, so findings are descriptive and exploratory.
+- Alpha diversity was calculated from rarefied counts. Rarefaction standardises depth but discards reads, and low-depth samples may underestimate true richness.
+- Dispersion summaries for Freshwater and Tongue are not informative because each group contains only two samples.
+- No differential-abundance testing was performed.
 
-- **Compositional data:** sequencing data provide relative, not absolute,
-  microbial abundances. An increase in the relative abundance of one
-  taxon may reflect either a true increase or a decrease in other taxa.
-  This limits causal or quantitative interpretations.
+# Reproducibility information
 
-- **Heterogeneous dataset:** GlobalPatterns combines very different
-  environments (soil, water, human-associated samples, mock
-  communities). Sample-type groups have small and unequal sizes, with
-  some containing only two or three samples. Results are therefore
-  descriptive and exploratory rather than confirmatory.
-
-- **Rarefaction trade-offs:** alpha diversity was calculated from a
-  rarefied table to standardise sequencing depth. Rarefaction discards
-  reads from deeper samples and can reduce power, but it simplifies
-  interpretation and is widely used for diversity comparisons. As shown
-  in section 7, several low-depth samples had not clearly plateaued,
-  so absolute richness values should be read as conservative estimates.
-
-- **No differential-abundance testing:** the analysis focuses on
-  diversity and composition patterns and does not test specific taxa for
-  differential abundance between groups.
-
-These limitations should be considered when interpreting the patterns
-described above.
-
-# Reproducibility Information
-
-This report was generated using R and the package versions listed below.
-Recording session information supports reproducibility and debugging.
+This report was generated in R. The session information below records the R version, operating system, and package versions used for the analysis.
 
 ```{r session-info}
 sessionInfo()
 ```
-
