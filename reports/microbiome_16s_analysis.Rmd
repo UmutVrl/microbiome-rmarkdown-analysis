@@ -445,15 +445,20 @@ PCoA visualises compositional relationships but does not test whether difference
 ```{r permanova-test}
 set.seed(123)
 
+permanova_data <- data.frame(
+  SampleType = factor(sample_df$SampleType),
+  row.names = rownames(sample_df)
+)
+
 stopifnot(
-  is.data.frame(sample_df),
-  identical(rownames(sample_df), labels(bray_dist)),
-  "SampleType" %in% names(sample_df)
+  is.data.frame(permanova_data),
+  identical(rownames(permanova_data), labels(bray_dist)),
+  "SampleType" %in% names(permanova_data)
 )
 
 permanova_result <- vegan::adonis2(
   bray_dist ~ SampleType,
-  data = sample_df,
+  data = permanova_data,
   permutations = 999
 )
 
