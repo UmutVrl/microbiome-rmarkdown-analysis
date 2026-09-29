@@ -87,6 +87,7 @@ Microbial communities differ substantially depending on the environment or host 
 
 `GlobalPatterns` is a widely used example 16S rRNA amplicon dataset distributed with the `phyloseq` package (Caporaso et al. 2011). It contains high-throughput sequencing data from 26 samples spanning diverse environmental and host-associated sources, along with an associated phylogenetic tree and taxonomy assignments.
 
+
 # Workflow Setup
 
 ```{r load-workflow-outputs}
@@ -115,6 +116,11 @@ stopifnot(
 ```
 
 # Load GlobalPatterns
+
+```{r load-data}
+data("GlobalPatterns", package = "phyloseq")
+GlobalPatterns
+```
 
 ```{r load-cleaned-workflow-data}
 ps_clean <- readRDS("results/cleaned_data.rds")
