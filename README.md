@@ -34,6 +34,8 @@ microbiome-16s-rmarkdown-analysis/
 ├── .gitignore
 ├── config/
 │   └── config.yaml
+├── docs/
+│   └── index.html
 ├── scripts/
 │   ├── create_analysis_tables.R
 │   ├── install_dependencies.R
