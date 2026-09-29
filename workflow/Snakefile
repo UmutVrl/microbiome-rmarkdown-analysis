@@ -1,3 +1,5 @@
+import os
+
 configfile: "config/config.yaml"
 
 
@@ -5,7 +7,8 @@ rule all:
     input:
         config["outputs"]["cleaned_data"],
         config["outputs"]["alpha_diversity"],
-        config["outputs"]["pcoa_coordinates"]
+        config["outputs"]["pcoa_coordinates"],
+        config["outputs"]["report"]
 
 
 rule validate_data:
@@ -29,3 +32,24 @@ rule create_analysis_tables:
         group_variable=config["group_variable"]
     script:
         "../scripts/create_analysis_tables.R"
+
+rule render_report:
+    input:
+        report="reports/microbiome_16s_analysis.Rmd",
+        cleaned="results/cleaned_data.rds",
+        alpha=config["outputs"]["alpha_diversity"],
+        pcoa=config["outputs"]["pcoa_coordinates"]
+    output:
+        config["outputs"]["report"]
+    params:
+        project_root=os.getcwd()
+    shell:
+        """
+        Rscript -e 'rmarkdown::render(
+          input          = "{input.report}",
+          output_file    = "{output}",
+          output_dir     = "results",
+          knit_root_dir  = "{params.project_root}",
+          quiet          = TRUE
+        )'
+        """
