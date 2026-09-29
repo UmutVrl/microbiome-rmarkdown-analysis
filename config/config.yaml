@@ -6,4 +6,4 @@ outputs:
   cleaned_data: "results/cleaned_data.rds"
   alpha_diversity: "results/alpha_diversity.csv"
   pcoa_coordinates: "results/pcoa_coordinates.csv"
-  report: "results/microbiome_16s_analysis.html
+  report: "results/microbiome_16s_analysis.html"
