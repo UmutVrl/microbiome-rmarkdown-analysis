@@ -1,80 +1,78 @@
 suppressPackageStartupMessages({
   library(phyloseq)
-  library(vegan)
   library(dplyr)
   library(tibble)
+  library(readr)
 })
 
 set.seed(snakemake@params[["seed"]])
 
-ps <- readRDS(snakemake@input[["cleaned_data"]])
-
 group_variable <- snakemake@params[["group_variable"]]
 
-metadata <- as.data.frame(sample_data(ps))
+# ---- Read validated/cleaned data from the previous rule ----
+ps_clean <- readRDS(snakemake@input[["cleaned_data"]])
 
-if (!group_variable %in% colnames(metadata)) {
-  stop(
-    "Grouping variable '", group_variable,
-    "' was not found in the sample metadata."
-  )
-}
+# ---- Depth table (needed for the alpha-diversity join, as in the Rmd) ----
+depth_df <- tibble(
+  SampleID   = sample_names(ps_clean),
+  LibSize    = sample_sums(ps_clean),
+  SampleType = sample_data(ps_clean)[[group_variable]]
+)
 
-rarefaction_depth <- min(sample_sums(ps))
+# =========================================================
+# Alpha diversity (mirrors the Rmd's "Alpha diversity" section)
+# =========================================================
 
-if (rarefaction_depth <= 0) {
-  stop("The minimum sequencing depth must be greater than zero.")
-}
-
-ps_rarefied <- rarefy_even_depth(
-  ps,
-  sample.size = rarefaction_depth,
-  rngseed = snakemake@params[["seed"]],
-  replace = FALSE,
-  verbose = FALSE
+# Rarefy to the minimum observed depth, same approach as the Rmd
+GlobalPatterns_rare <- rarefy_even_depth(
+  ps_clean,
+  sample.size = min(sample_sums(ps_clean)),
+  rngseed     = snakemake@params[["seed"]],
+  replace     = FALSE,
+  verbose     = FALSE
 )
 
 alpha_diversity <- estimate_richness(
-  ps_rarefied,
+  GlobalPatterns_rare,
   measures = c("Observed", "Shannon", "Simpson")
 ) |>
-  rownames_to_column("SampleID") |>
+  tibble::rownames_to_column("SampleID") |>
   left_join(
-    metadata |>
-      rownames_to_column("SampleID"),
+    depth_df |>
+      select(SampleID, SampleType, LibSize),
     by = "SampleID"
   )
 
-write.csv(
-  alpha_diversity,
-  snakemake@output[["alpha_diversity"]],
-  row.names = FALSE
-)
+readr::write_csv(alpha_diversity, snakemake@output[["alpha_diversity"]])
 
-ps_relative <- transform_sample_counts(
-  ps,
+# =========================================================
+# Beta diversity / PCoA (mirrors the Rmd's "Beta diversity / PCoA" section)
+# =========================================================
+
+# Relative abundance, same approach as the Rmd (NOT rarefied a second time)
+GlobalPatterns_relabund <- transform_sample_counts(
+  ps_clean,
   function(x) x / sum(x)
 )
 
-bray_distance <- phyloseq::distance(ps_relative, method = "bray")
+bray_dist <- phyloseq::distance(GlobalPatterns_relabund, method = "bray")
 
-pcoa <- ordinate(
-  ps_relative,
-  method = "PCoA",
-  distance = bray_distance
-)
+pcoa_ord <- ordinate(GlobalPatterns_relabund, method = "PCoA", distance = bray_dist)
 
-pcoa_coordinates <- as.data.frame(pcoa$vectors[, 1:2]) |>
+pcoa_eig <- pcoa_ord$values$Relative_eig
+var_pc1  <- round(pcoa_eig[1] * 100, 1)
+var_pc2  <- round(pcoa_eig[2] * 100, 1)
+
+pcoa_coordinates <- as.data.frame(pcoa_ord$vectors[, 1:2]) |>
   rownames_to_column("SampleID") |>
-  setNames(c("SampleID", "PCoA1", "PCoA2")) |>
+  rename(PCoA1 = Axis.1, PCoA2 = Axis.2) |>
   left_join(
-    metadata |>
-      rownames_to_column("SampleID"),
+    depth_df |> select(SampleID, SampleType),
     by = "SampleID"
+  ) |>
+  mutate(
+    VarExplainedPCoA1 = var_pc1,  # repeated per row so the report can read
+    VarExplainedPCoA2 = var_pc2   # axis-label percentages without a 2nd file
   )
 
-write.csv(
-  pcoa_coordinates,
-  snakemake@output[["pcoa_coordinates"]],
-  row.names = FALSE
-)
+readr::write_csv(pcoa_coordinates, snakemake@output[["pcoa_coordinates"]])
