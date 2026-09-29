@@ -55,7 +55,9 @@ invisible(lapply(required_packages, library, character.only = TRUE))
 
 **Installation:** See scripts/install_dependencies.R
 
-- **tidyverse**: Provides tools for importing, cleaning, transforming, summarising, and visualising tabular data, including `dplyr`, `readr`, `tidyr`, and `ggplot2`.
+- **ggplot2**, **dplyr**, **readr**, **tidyr**, **tibble**, **stringr**, and **forcats**: provide data manipulation, import, reshaping, and visualisation tools.
+
+- **rmarkdown** and **knitr**: render the reproducible HTML report. `tinytex` is optional and is required only for PDF output.
 
 - **phyloseq**: Integrates microbiome abundance data, taxonomy, phylogenetic information, and sample metadata into a single object for ecological analysis.
 
@@ -68,12 +70,6 @@ invisible(lapply(required_packages, library, character.only = TRUE))
 - **janitor**: Provides convenient functions for cleaning and standardising variable and column names.
 
 - **here**: Creates reliable relative file paths within the project folder, improving reproducibility across computers.
-
-- **rmarkdown**: Renders the analysis, code, figures, and written interpretation into a reproducible HTML report.
-
-- **knitr**: Executes R code chunks and formats code, tables, figures, and output inside the R Markdown report.
-
-- **tinytex**: A lightweight, cross-platform, portable, and easy-to-maintain LaTeX distribution based on TeX Live
 
 # Introduction and Research Question
 
@@ -91,28 +87,7 @@ Microbial communities differ substantially depending on the environment or host 
 
 `GlobalPatterns` is a widely used example 16S rRNA amplicon dataset distributed with the `phyloseq` package (Caporaso et al. 2011). It contains high-throughput sequencing data from 26 samples spanning diverse environmental and host-associated sources, along with an associated phylogenetic tree and taxonomy assignments.
 
-# Package Setup
-
-```{r load-libraries, message=FALSE, warning=FALSE}
-# Installation instructions: see scripts/install_dependencies.R and README.md
-
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-library(readr)
-library(stringr)
-library(forcats)
-library(tibble)
-
-library(vegan)
-library(ape)
-library(rmarkdown)
-library(knitr)
-library(here)
-library(janitor)
-library(phyloseq)
-library(microbiome)
-```
+# Workflow Setup
 
 ```{r load-workflow-outputs}
 alpha_diversity <- readr::read_csv(
@@ -129,11 +104,21 @@ var_pc1 <- pcoa_coordinates$VarExplainedPCoA1[1]
 var_pc2 <- pcoa_coordinates$VarExplainedPCoA2[1]
 ```
 
+```{r validate-workflow-outputs}
+stopifnot(
+  nrow(alpha_diversity) == nrow(pcoa_coordinates),
+  all(c("SampleID", "Observed", "Shannon", "Simpson", "SampleType") %in%
+        names(alpha_diversity)),
+  all(c("SampleID", "PCoA1", "PCoA2", "SampleType") %in%
+        names(pcoa_coordinates))
+)
+```
+
 # Load GlobalPatterns
 
-```{r load-data}
-data(GlobalPatterns)
-GlobalPatterns
+```{r load-cleaned-workflow-data}
+ps_clean <- readRDS("results/cleaned_data.rds")
+ps_clean
 ```
 
 # Inspect Data Structure
@@ -312,36 +297,6 @@ percent_retained
 
 ```
 
-### Prepare normalized objects for downstream analysis
-
-```{r filtering-normalize}
-set.seed(123)  # reproducibility for rarefaction
-
-# 1. Rarefied object -> for alpha diversity (section 9)
-#    Rarefies every sample to the minimum observed depth so richness/
-#    Shannon are compared on an equal footing.
-GlobalPatterns_rare <- rarefy_even_depth(
-  GlobalPatterns_filt,
-  sample.size = min(sample_sums(GlobalPatterns_filt)),
-  rngseed     = 123,
-  replace     = FALSE,
-  verbose     = FALSE
-)
-
-ntaxa(GlobalPatterns_rare)
-sample_sums(GlobalPatterns_rare) %>% unique()  # should all equal min depth
-
-# 2. Relative-abundance object -> for beta diversity / PCoA (section 10)
-#    Converts counts to proportions per sample, avoiding the need to
-#    discard reads via rarefaction for ordination-based comparisons.
-GlobalPatterns_relabund <- transform_sample_counts(
-  GlobalPatterns_filt,
-  function(x) x / sum(x)
-)
-
-sample_sums(GlobalPatterns_relabund) %>% unique()  # should all equal 1
-```
-
 # Alpha diversity
 
 > How diverse is each individual microbiome sample?
@@ -470,7 +425,7 @@ bray_dist <- phyloseq::distance(
   method = "bray"
 )
 
-metadata <- as.data.frame(sample_data(ps_clean))
+sample_df <- as.data.frame(sample_data(ps_clean))
 ```
 
 **Observed result:** Samples positioned closer together in the PCoA plot have more similar microbial compositions, while more distant samples have more dissimilar relative-abundance profiles.
@@ -483,8 +438,6 @@ PCoA visualises compositional relationships but does not test whether difference
 
 ```{r permanova-test}
 set.seed(123)  # reproducibility for permutation test
-
-sample_df <- sample_data(GlobalPatterns_relabund) %>% as("data.frame")
 
 permanova_result <- adonis2(
   bray_dist ~ SampleType,
@@ -589,6 +542,12 @@ Among groups with at least three samples, Mock had the lowest median distance to
 Feature-level relative abundances were aggregated to the phylum level and visualised as stacked bar charts. The ten most abundant phyla were shown individually, with all remaining phyla grouped as “Other.”
 
 ```{r taxonomic-composition-prep}
+# Use the workflow-validated object and convert counts to relative abundance.
+ps_relative_taxonomy <- transform_sample_counts(
+  ps_clean,
+  function(x) x / sum(x)
+)
+
 # Agglomerate to phylum level
 ps_phylum <- tax_glom(GlobalPatterns_relabund, taxrank = "Phylum")
 
