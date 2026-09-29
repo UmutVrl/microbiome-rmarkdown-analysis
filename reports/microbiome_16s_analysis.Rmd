@@ -418,9 +418,7 @@ ggplot(
 ```
 
 ```{r beta-diversity-statistics}
-# Beta-diversity statistics use the cleaned phyloseq object produced by the workflow.
-ps_clean <- readRDS("results/cleaned_data.rds")
-
+# Beta-diversity statistics use the workflow-validated phyloseq object.
 GlobalPatterns_relabund <- transform_sample_counts(
   ps_clean,
   function(x) x / sum(x)
@@ -431,7 +429,9 @@ bray_dist <- phyloseq::distance(
   method = "bray"
 )
 
+# Convert metadata to a base data.frame and align it to the distance matrix.
 sample_df <- as.data.frame(sample_data(ps_clean))
+sample_df <- sample_df[labels(bray_dist), , drop = FALSE]
 ```
 
 **Observed result:** Samples positioned closer together in the PCoA plot have more similar microbial compositions, while more distant samples have more dissimilar relative-abundance profiles.
@@ -443,11 +443,17 @@ sample_df <- as.data.frame(sample_data(ps_clean))
 PCoA visualises compositional relationships but does not test whether differences among sample types are statistically significant. PERMANOVA (`adonis2()`) tests whether microbial community composition is associated with `SampleType` by comparing within-group and between-group Bray–Curtis dissimilarities using permutations.
 
 ```{r permanova-test}
-set.seed(123)  # reproducibility for permutation test
+set.seed(123)
 
-permanova_result <- adonis2(
+stopifnot(
+  is.data.frame(sample_df),
+  identical(rownames(sample_df), labels(bray_dist)),
+  "SampleType" %in% names(sample_df)
+)
+
+permanova_result <- vegan::adonis2(
   bray_dist ~ SampleType,
-  data        = sample_df,
+  data = sample_df,
   permutations = 999
 )
 
