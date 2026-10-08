@@ -4,6 +4,8 @@ A Snakemake-managed workflow for reproducible downstream analysis of the `Global
 
 The workflow validates a processed `phyloseq` dataset, generates alpha-diversity and Bray–Curtis PCoA results, and renders an HTML analysis report.
 
+**Rendered report:** <https://UmutVrl.github.io/microbiome-rmarkdown-analysis/results/microbiome_16s_analysis.html>
+
 ## Research question
 
 How do microbial alpha diversity, beta diversity, and taxonomic composition vary across sample types in the GlobalPatterns dataset?
@@ -124,4 +126,6 @@ The current workflow uses the installed R environment on the host system. A futu
 
 Results are exploratory because the dataset contains heterogeneous environments and small, unequal sample-type groups.
 
-UV 2026
+## Author
+
+Umut Can Vural, 2026. Released under the MIT License.
